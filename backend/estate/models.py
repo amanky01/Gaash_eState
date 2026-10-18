@@ -9,6 +9,7 @@ from .constants import (
     UnitStatus,
     BedStatus,
     OccupantType,
+    Gender,
     AllocationStatus,
     AmenityLevel,
     AmenityValueType,
@@ -119,6 +120,8 @@ class Bed(TimeStampedModel):
 class Occupant(TimeStampedModel):
     occupant_type = models.CharField(max_length=20, choices=OccupantType.choices)
     full_name = models.CharField(max_length=150)
+    # Needed to enforce boys/girls hostel rules. Required for students (enforced in services).
+    gender = models.CharField(max_length=1, choices=Gender.choices, blank=True)
     contact_number = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     external_ref_id = models.CharField(max_length=100, blank=True, null=True)

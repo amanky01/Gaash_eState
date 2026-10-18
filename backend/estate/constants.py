@@ -31,6 +31,11 @@ class OccupantType(models.TextChoices):
     SHOPKEEPER = 'SHOPKEEPER', 'Shopkeeper'
 
 
+class Gender(models.TextChoices):
+    MALE = 'M', 'Male'
+    FEMALE = 'F', 'Female'
+
+
 class AllocationStatus(models.TextChoices):
     ACTIVE = 'ACTIVE', 'Active'
     VACATED = 'VACATED', 'Vacated'
