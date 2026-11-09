@@ -15,6 +15,7 @@ from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 
 from . import services
 from .constants import AllocationStatus, AmenityValueType
@@ -28,7 +29,7 @@ from .models import (
     Occupant,
     Unit,
 )
-from .permissions import IsEstateAdmin, IsEstateStaff, IsHallAssistant
+from .permissions import IsEstateAdmin, IsEstateStaff, IsHallAssistant, is_estate_admin, is_hall_assistant
 from .serializers import (
     AllocationSerializer,
     AmenityDefinitionSerializer,
@@ -385,4 +386,26 @@ class StatsView(APIView):
             },
             'active_allocations': Allocation.objects.filter(status=ACTIVE).count(),
             'by_property_type': by_type,
+        })
+
+class MeView(APIView):
+    """GET /api/estate/me/ - the logged-in user and their estate role."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if is_estate_admin(request):
+            role = 'estate_admin'
+        elif is_hall_assistant(request):
+            role = 'hall_assistant'
+        else:
+            role = None
+        return Response({
+            'id': user.id,
+            'username': user.get_username(),
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'is_superuser': user.is_superuser,
+            'role': role,
         })

@@ -18,4 +18,5 @@ router.register('amenity-values', views.AmenityValueViewSet, basename='amenity-v
 urlpatterns = [
     path('stats/', views.StatsView.as_view(), name='stats'),
     path('', include(router.urls)),
+    path('me/', views.MeView.as_view(), name='me'),
 ]

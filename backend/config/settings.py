@@ -115,6 +115,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # --- CORS / CSRF (frontend on a different origin, session auth) ------------
+LOGIN_REDIRECT_URL = '/api/estate/me/'
 
 _frontend_origins = env_list(
     'CORS_ALLOWED_ORIGINS',
