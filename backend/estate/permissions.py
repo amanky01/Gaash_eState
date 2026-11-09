@@ -1,42 +1,61 @@
-'''permissions.py
+"""permissions.py
 
-Custom DRF permission classes that map to the two Django groups created in the
-migration ``0003_create_groups.py``.
-''' 
+Two roles, backed by the Django groups created in migration 0003:
 
-from rest_framework import permissions
-from django.contrib.auth.models import Group
+* ``estate_admin``    - full access to everything in the estate API.
+* ``hall_assistant``  - only the actions a view lists in ``assistant_actions``
+                        (DRF action names such as ``list``, ``create``, ``vacate``).
+
+Superusers are treated as estate admins. Anyone else (including logged-in users
+with no group) is denied.
+
+Usage on a view:  permission_classes = [IsEstateAdmin | IsHallAssistant]
+"""
+from rest_framework.permissions import BasePermission
+
+ESTATE_ADMIN = 'estate_admin'
+HALL_ASSISTANT = 'hall_assistant'
 
 
-def _in_group(user, group_name: str) -> bool:
-    return user.is_authenticated and user.groups.filter(name=group_name).exists()
+def _roles(request):
+    """Group names of the requesting user, cached on the request (1 query max)."""
+    user = request.user
+    if not (user and user.is_authenticated):
+        return frozenset()
+    cached = getattr(request, '_estate_roles', None)
+    if cached is None:
+        cached = frozenset(
+            user.groups.filter(name__in=[ESTATE_ADMIN, HALL_ASSISTANT]).values_list('name', flat=True)
+        )
+        request._estate_roles = cached
+    return cached
 
 
-class IsEstateAdmin(permissions.BasePermission):
-    """Allow full access for users in the ``estate_admin`` group.
-    """
+def is_estate_admin(request):
+    user = request.user
+    return bool(user and user.is_authenticated and (user.is_superuser or ESTATE_ADMIN in _roles(request)))
+
+
+def is_hall_assistant(request):
+    return HALL_ASSISTANT in _roles(request)
+
+
+class IsEstateAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return is_estate_admin(request)
+
+
+class IsHallAssistant(BasePermission):
+    """Hall assistants may only perform the actions listed in ``view.assistant_actions``."""
 
     def has_permission(self, request, view):
-        return _in_group(request.user, "estate_admin")
+        if not is_hall_assistant(request):
+            return False
+        return getattr(view, 'action', None) in getattr(view, 'assistant_actions', ())
 
 
-class IsHallAssistant(permissions.BasePermission):
-    """Allow limited access for ``hall_assistant`` members.
-    The assistant can manage beds and allocations but cannot modify
-    top‑level entities such as buildings or amenity definitions.
-    """
+class IsEstateStaff(BasePermission):
+    """Any estate role. For plain APIViews (stats etc.) that have no per-action rules."""
 
     def has_permission(self, request, view):
-        # Hall assistants have permission for safe‑method actions on allowed models
-        if not _in_group(request.user, "hall_assistant"):
-            return False
-        # Restrict to specific viewsets (Bed, Allocation, AmenityValue) – the view
-        # will expose the ``allowed_actions`` attribute for fine‑grained checks.
-        allowed_actions = getattr(view, "allowed_actions", None)
-        if allowed_actions is None:
-            # If the view does not declare allowed_actions, deny by default.
-            return False
-        if request.method in permissions.SAFE_METHODS:
-            return "list" in allowed_actions or "retrieve" in allowed_actions
-        # For mutable methods, only allow if the view explicitly permits it.
-        return request.method in allowed_actions
+        return is_estate_admin(request) or is_hall_assistant(request)
